@@ -1,0 +1,143 @@
+import java.util.*;
+
+/**
+ * SchedulingDemo.java
+ *
+ * Compile:  javac SchedulingDemo.java
+ * Run   :   java SchedulingDemo
+ */
+public class SchedulingDemo {
+
+    /* -------------------- Process class -------------------- */
+    static class Proc {
+        int pid;
+        int arrival;
+        int burst;
+        int priority;
+
+        // Results
+        int start, finish, waiting, tat;
+
+        Proc(int pid, int arrival, int burst, int priority) {
+            this.pid = pid;
+            this.arrival = arrival;
+            this.burst = burst;
+            this.priority = priority;
+        }
+    }
+
+    /* -------------------- FCFS ------------------------------ */
+    private static List<Proc> fcfs(List<Proc> input) {
+        List<Proc> list = cloneList(input);
+        list.sort(Comparator.comparingInt(p -> p.arrival));      // by arrival
+        int clock = 0;
+        for (Proc p : list) {
+            clock = Math.max(clock, p.arrival);
+            p.start  = clock;
+            clock   += p.burst;
+            p.finish = clock;
+            p.tat    = p.finish - p.arrival;
+            p.waiting= p.start  - p.arrival;
+        }
+        return list;
+    }
+
+    /* -------------------- SJF (non‑pre‑emptive) ------------- */
+    private static List<Proc> sjf(List<Proc> input) {
+        List<Proc> list = cloneList(input);
+        List<Proc> result = new ArrayList<>();
+        int clock = 0;
+        while (!list.isEmpty()) {
+            // pick arrived processes
+            List<Proc> ready = new ArrayList<>();
+            for (Proc p : list)
+                if (p.arrival <= clock) ready.add(p);
+
+            if (ready.isEmpty()) {               // CPU idle
+                clock = list.stream().mapToInt(p -> p.arrival).min().getAsInt();
+                continue;
+            }
+            ready.sort(Comparator.comparingInt(p -> p.burst));
+            Proc cur = ready.get(0);
+            list.remove(cur);
+
+            cur.start   = clock;
+            cur.finish  = clock + cur.burst;
+            cur.tat     = cur.finish - cur.arrival;
+            cur.waiting = cur.start  - cur.arrival;
+            clock       = cur.finish;
+
+            result.add(cur);
+        }
+        return result;
+    }
+
+    /* -------------------- Priority (non‑pre‑emptive) -------- */
+    private static List<Proc> priorityNP(List<Proc> input) {
+        List<Proc> list = cloneList(input);
+        List<Proc> result = new ArrayList<>();
+        int clock = 0;
+        while (!list.isEmpty()) {
+            List<Proc> ready = new ArrayList<>();
+            for (Proc p : list)
+                if (p.arrival <= clock) ready.add(p);
+
+            if (ready.isEmpty()) {
+                clock = list.stream().mapToInt(p -> p.arrival).min().getAsInt();
+                continue;
+            }
+            ready.sort(Comparator.comparingInt(p -> p.priority));
+            Proc cur = ready.get(0);
+            list.remove(cur);
+
+            cur.start   = clock;
+            cur.finish  = clock + cur.burst;
+            cur.tat     = cur.finish - cur.arrival;
+            cur.waiting = cur.start  - cur.arrival;
+            clock       = cur.finish;
+
+            result.add(cur);
+        }
+        return result;
+    }
+
+    /* -------------------- Helpers --------------------------- */
+    private static List<Proc> cloneList(List<Proc> src) {
+        List<Proc> c = new ArrayList<>();
+        for (Proc p : src)
+            c.add(new Proc(p.pid, p.arrival, p.burst, p.priority));
+        return c;
+    }
+
+    private static void printSchedule(String title, List<Proc> procs) {
+        double avgWait = 0, avgTat = 0;
+        System.out.println("\n=== " + title + " ===");
+        System.out.printf("%-4s %-7s %-6s %-8s %-6s %-6s %-6s %-6s%n",
+                "PID", "Arr", "Burst", "Prio", "Start", "Fin", "Wait", "TAT");
+        for (Proc p : procs) {
+            System.out.printf("%-4d %-7d %-6d %-8d %-6d %-6d %-6d %-6d%n",
+                    p.pid, p.arrival, p.burst, p.priority, p.start, p.finish, p.waiting, p.tat);
+            avgWait += p.waiting;
+            avgTat  += p.tat;
+        }
+        int n = procs.size();
+        System.out.printf("Average waiting time = %.2f%n", avgWait / n);
+        System.out.printf("Average turnaround  = %.2f%n", avgTat  / n);
+    }
+
+    /* -------------------- Main ------------------------------ */
+    public static void main(String[] args) {
+
+        // Sample process list (pid, arrival, burst, priority)
+        List<Proc> demo = Arrays.asList(
+            new Proc(1, 0,  8, 2),
+            new Proc(2, 1,  4, 1),
+            new Proc(3, 2,  9, 3),
+            new Proc(4, 3,  5, 2)
+        );
+
+        printSchedule("FCFS",       fcfs(demo));
+        printSchedule("SJF (NP)",   sjf(demo));
+        printSchedule("Priority NP",priorityNP(demo));
+    }
+}
