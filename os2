@@ -1,0 +1,142 @@
+
+import java.util.*;
+
+/**
+ * Console Address Book
+ * --------------------
+ * a) Create address book
+ * b) View address book
+ * c) Insert record
+ * d) Delete a record
+ * e) Modify a record
+ * f) Exit
+ */
+public class AddressBookApp {
+
+    // -------- Model --------
+    private static class AddressCard {
+        String name;
+        String phone;
+        String email;
+
+        AddressCard(String name, String phone, String email) {
+            this.name  = name;
+            this.phone = phone;
+            this.email = email;
+        }
+
+        public String toString() {
+            return String.format("%-20s %-15s %-25s", name, phone, email);
+        }
+    }
+
+    // -------- Data store --------
+    private static final List<AddressCard> book = new ArrayList<>();
+    private static final Scanner sc = new Scanner(System.in);
+
+    // -------- Helpers --------
+    private static void pause() {
+        System.out.print("\nPress Enter to continue...");
+        sc.nextLine();
+    }
+
+    private static void printHeader() {
+        System.out.printf("%-4s %-20s %-15s %-25s%n", "No", "Name", "Phone", "Email");
+        System.out.println("-------------------------------------------------------------------");
+    }
+
+    // -------- Menu actions --------
+    private static void createBook() {
+        book.clear();
+        System.out.println("New empty address book created.");
+    }
+
+    private static void viewBook() {
+        if (book.isEmpty()) {
+            System.out.println("Address book is empty.");
+            return;
+        }
+        printHeader();
+        int i = 1;
+        for (AddressCard c : book)
+            System.out.printf("%-4d %s%n", i++, c);
+    }
+
+    private static void insertRecord() {
+        System.out.print("Name  : ");  String name  = sc.nextLine().trim();
+        System.out.print("Phone : ");  String phone = sc.nextLine().trim();
+        System.out.print("Email : ");  String email = sc.nextLine().trim();
+        book.add(new AddressCard(name, phone, email));
+        System.out.println("Record inserted.");
+    }
+
+    private static void deleteRecord() {
+        if (book.isEmpty()) {
+            System.out.println("Nothing to delete.");
+            return;
+        }
+        viewBook();
+        System.out.print("Enter record number to delete: ");
+        try {
+            int idx = Integer.parseInt(sc.nextLine()) - 1;
+            book.remove(idx);
+            System.out.println("Record deleted.");
+        } catch (Exception e) {
+            System.out.println("Invalid number.");
+        }
+    }
+
+    private static void modifyRecord() {
+        if (book.isEmpty()) {
+            System.out.println("Nothing to modify.");
+            return;
+        }
+        viewBook();
+        System.out.print("Enter record number to modify: ");
+        try {
+            int idx = Integer.parseInt(sc.nextLine()) - 1;
+            AddressCard c = book.get(idx);
+
+            System.out.print("New name  (" + c.name  + "): ");
+            String name  = sc.nextLine().trim();
+            System.out.print("New phone (" + c.phone + "): ");
+            String phone = sc.nextLine().trim();
+            System.out.print("New email (" + c.email + "): ");
+            String email = sc.nextLine().trim();
+
+            if (!name.isEmpty())  c.name  = name;
+            if (!phone.isEmpty()) c.phone = phone;
+            if (!email.isEmpty()) c.email = email;
+
+            System.out.println("Record updated.");
+        } catch (Exception e) {
+            System.out.println("Invalid number.");
+        }
+    }
+
+    // -------- Main loop --------
+    public static void main(String[] args) {
+        while (true) {
+            System.out.println("\n=== ADDRESS BOOK MENU ===");
+            System.out.println("a) Create address book");
+            System.out.println("b) View address book");
+            System.out.println("c) Insert record");
+            System.out.println("d) Delete a record");
+            System.out.println("e) Modify a record");
+            System.out.println("f) Exit");
+            System.out.print("Choose option (a‑f): ");
+
+            char choice = sc.nextLine().trim().toLowerCase().charAt(0);
+            switch (choice) {
+                case 'a': createBook();     break;
+                case 'b': viewBook();       break;
+                case 'c': insertRecord();   break;
+                case 'd': deleteRecord();   break;
+                case 'e': modifyRecord();   break;
+                case 'f': System.out.println("Goodbye."); System.exit(0);
+                default : System.out.println("Invalid choice.");
+            }
+            pause();
+        }
+    }
+}
