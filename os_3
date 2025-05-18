@@ -1,0 +1,44 @@
+/* Compile with:  gcc proc_demo.c -o proc_demo
+   Run:           ./proc_demo  */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+int main(void)
+{
+    pid_t pid = fork();               // ----- fork -----
+    if (pid < 0) {
+        perror("fork");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pid == 0) {                   // ----- child -----
+        printf("[Child]  PID=%d  PPID=%d\n", getpid(), getppid());
+        sleep(2);                     // keep child alive long enough to observe
+
+        /* Replace child image with /bin/ls ---------------- execve */
+        char *args[] = {"/bin/ls", "-l", NULL};
+        execve("/bin/ls", args, NULL);
+
+        /* execve only returns on error */
+        perror("execve");
+        exit(EXIT_FAILURE);
+    }
+    else {                            // ----- parent -----
+        printf("[Parent] PID=%d  created child PID=%d\n", getpid(), pid);
+
+        sleep(1);                     // 1 s pause to let you inspect process tree
+
+        /* comment the wait() line to see a zombie --------- */
+        int status;
+        wait(&status);                // ----- wait -----
+        printf("[Parent] Child terminated with status %d\n", WEXITSTATUS(status));
+
+        /* keep parent alive so you can observe an orphan --- */
+        printf("[Parent] Sleeping 10 s to show orphan case; kill child again?\n");
+        sleep(10);
+    }
+    return 0;
+}
