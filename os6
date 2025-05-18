@@ -1,0 +1,122 @@
+/* Compile :  gcc -pthread producer_consumer.c -o prodcons
+   Run      :  ./prodcons
+   (Produces 20 items with 2 producers and 2 consumers)           */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <semaphore.h>
+
+/* ---------- parameters ---------- */
+#define BUFFER_SIZE 5
+#define ITEMS_TO_PRODUCE 20
+#define N_PRODUCERS 2
+#define N_CONSUMERS 2
+
+/* ---------- shared data ---------- */
+int buffer[BUFFER_SIZE];
+int in  = 0;          /* next free position */
+int out = 0;          /* next full position */
+
+sem_t empty;          /* counts empty slots */
+sem_t full;           /* counts filled slots */
+pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
+
+int produced = 0;     /* total items produced  (protected by mtx) */
+int consumed = 0;     /* total items consumed  (protected by mtx) */
+
+/* ---------- producer thread ---------- */
+void *producer(void *arg)
+{
+    int id = *(int*)arg;
+    free(arg);
+
+    while (1) {
+        /* stop after ITEMS_TO_PRODUCE total */
+        pthread_mutex_lock(&mtx);
+        if (produced >= ITEMS_TO_PRODUCE) {
+            pthread_mutex_unlock(&mtx);
+            break;
+        }
+        int item = ++produced;      /* produce next integer                   */
+        pthread_mutex_unlock(&mtx);
+
+        sem_wait(&empty);           /* wait for empty slot                    */
+        pthread_mutex_lock(&mtx);   /* enter critical section                 */
+
+        buffer[in] = item;
+        in = (in + 1) % BUFFER_SIZE;
+        printf("Producer %d -> produced %d\n", id, item);
+
+        pthread_mutex_unlock(&mtx); /* leave critical section                 */
+        sem_post(&full);            /* signal item available                  */
+        usleep(100000);             /* simulate work (0.1 s)                  */
+    }
+    pthread_exit(NULL);
+}
+
+/* ---------- consumer thread ---------- */
+void *consumer(void *arg)
+{
+    int id = *(int*)arg;
+    free(arg);
+
+    while (1) {
+        pthread_mutex_lock(&mtx);
+        if (consumed >= ITEMS_TO_PRODUCE) {   /* all items already consumed?  */
+            pthread_mutex_unlock(&mtx);
+            break;
+        }
+        pthread_mutex_unlock(&mtx);
+
+        sem_wait(&full);            /* wait for an item                       */
+        pthread_mutex_lock(&mtx);   /* critical section                       */
+
+        int item = buffer[out];
+        out = (out + 1) % BUFFER_SIZE;
+        ++consumed;
+        printf("Consumer %d <- consumed %d\n", id, item);
+
+        pthread_mutex_unlock(&mtx);
+        sem_post(&empty);           /* signal slot now empty                  */
+        usleep(150000);             /* simulate work (0.15 s)                 */
+    }
+    pthread_exit(NULL);
+}
+
+/* ---------- main ---------- */
+int main(void)
+{
+    pthread_t prod[N_PRODUCERS], cons[N_CONSUMERS];
+
+    /* init semaphores */
+    sem_init(&empty, 0, BUFFER_SIZE);   /* all slots empty at start */
+    sem_init(&full,  0, 0);             /* no full slots yet        */
+
+    /* create producers */
+    for (int i = 0; i < N_PRODUCERS; ++i) {
+        int *id = malloc(sizeof(int));
+        *id = i+1;
+        pthread_create(&prod[i], NULL, producer, id);
+    }
+    /* create consumers */
+    for (int i = 0; i < N_CONSUMERS; ++i) {
+        int *id = malloc(sizeof(int));
+        *id = i+1;
+        pthread_create(&cons[i], NULL, consumer, id);
+    }
+
+    /* join all threads */
+    for (int i = 0; i < N_PRODUCERS; ++i) pthread_join(prod[i], NULL);
+    for (int i = 0; i < N_CONSUMERS; ++i) pthread_join(cons[i], NULL);
+
+    /* clean up */
+    sem_destroy(&empty);
+    sem_destroy(&full);
+    pthread_mutex_destroy(&mtx);
+
+    printf("\nAll work done. Produced = %d, Consumed = %d\n",
+           produced, consumed);
+    return 0;
+}
